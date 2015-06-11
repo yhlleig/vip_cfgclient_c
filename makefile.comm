@@ -1,0 +1,69 @@
+######################################################
+#   General Makefile .                               #
+#   Author: honglei.yu@vipshop.com                   #
+#   Date:   2015-6-1                                 #
+#   Platform:   Linux           				     #
+######################################################
+
+GCC = gcc -g -Wall
+CXX=g++ -g -Wall
+
+AR = ar
+LD = ld
+I_SYM = -I
+L_SYM = -L
+LINUXOPTS = -fPIC -U_GNU_SOURCE
+LINUX_SHARED_FLAG= -shared -export-dynamic
+SHARED_FLAG=$(LINUX_SHARED_FLAG)
+
+#BASE_PATH = $(CODE_ROOT) 
+BASE_PATH = /data/refactor/mycode
+####third-party path############################################
+
+3rd=$(BASE_PATH)/3rd
+
+###########################################
+
+#DEMANGLE_FLAG      = -rdynamic -DCPP_DEMANGLE
+
+##########################################################
+
+LIB_COMM_PATH    = -L$(BASE_PATH)/lib 
+
+THIRD_LIB_PATH   = $(3rd)/lib/
+
+CFLAGS=-fPIC -Wno-write-strings
+
+###########################################################
+
+ALL_INC=-I./ \
+			-I$(BASE_PATH)/include\
+			-I$(BASE_PATH)/common/include\
+			-I$(3rd)\
+ 			$(MYINC) \
+
+ALL_LIB=$(LIB_COMM_PATH) -L$(THIRD_LIB_PATH) $(MYLIB)
+
+#DEMANGLE_LIB = -liberty
+
+CXXFLAGS=$(CFLAGS)  -Wno-deprecated
+
+.SUFFIXES: .o .cpp .so .a
+.c.o:
+	$(GCC) $(ALL_INC)  $(CFLAGS) -c $^
+
+.cc.o:	
+	$(CXX) $(ALL_INC)  $(CFLAGS) -c $^
+
+.cpp.o:
+	$(CXX) $(ALL_INC)  $(CXXFLAGS) -c $^
+
+.o.so:	
+	g++ -Wall -shared -fPIC -o lib$@ $^ $(ALL_LIB)
+	
+.o.a:	
+	$(AR) -crl lib$@ $^
+
+.o:
+	$(GCC) $(CFLAGS) -o $@ $^  $(ALL_LIB)
+	#strip $@

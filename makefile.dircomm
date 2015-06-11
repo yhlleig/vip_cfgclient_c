@@ -1,0 +1,80 @@
+#DIRS	 = lib src
+
+all:
+	@for x in $(DIRS); \
+	do \
+		if [ -d $$x ]; then \
+			echo "--> $$x"; \
+			(cd $$x; make $(MAKEFLAG) all ; cd .. ); \
+			echo "<-- $$x"; \
+		fi; \
+		echo " "; \
+	done
+	@echo "done."
+
+clean:
+	@for x in $(DIRS); \
+	do \
+		if [ -d $$x ]; then \
+			echo "--> $$x"; \
+			(cd $$x; make clean ; cd .. ); \
+			echo "<-- $$x"; \
+		fi; \
+		echo " "; \
+	done
+	@echo "done."
+
+strip:
+	@for x in $(DIRS); \
+	do \
+		if [ -d $$x ]; then \
+			echo "--> $$x"; \
+			(cd $$x; make strip ; cd .. ); \
+			echo "<-- $$x"; \
+		fi; \
+		echo " "; \
+	done
+	@echo "done."
+
+install:
+	@for x in $(DIRS); \
+	do \
+		if [ -d $$x ]; then \
+			echo "--> $$x"; \
+			(cd $$x; make install ; cd .. ); \
+			echo "<-- $$x"; \
+		fi; \
+		echo " "; \
+	done
+	@echo "done."
+
+uninstall:
+	@for x in $(DIRS); \
+	do \
+		if [ -d $$x ]; then \
+			echo "--> $$x"; \
+			(cd $$x; make uninstall ; cd .. ); \
+			echo "<-- $$x"; \
+		fi; \
+		echo " "; \
+	done
+	@echo "done."
+
+cleanall:
+	rm -Rf ./install/appserver/bin/*
+	rm -Rf ./install/appserver/libs/*
+	rm -Rf ./install/appserver/shell/*
+	rm -Rf ./install/appserver/tools/*
+	rm -Rf ./install/appserver_oracle/bin/*
+	rm -Rf ./install/appserver_oracle/libs/*
+	rm -Rf ./install/c2c/my/cgi-bin/*
+	rm -Rf ./install/cacheserver/bin/*
+	rm -Rf ./install/dataserver/bin/*
+	rm -Rf ./install/dataserver/libs/*
+	rm -Rf ./install/fileserver/bin/*
+	rm -Rf ./install/proxy/bin/*
+	rm -Rf ./install/statserver/bin/*
+	rm -Rf ./install/statserver/libs/*
+	rm -Rf ./install/statserver/shell/*
+	rm -Rf ./install/statserver/tools/*
+	rm -Rf ./install/web/cgi-bin/*
