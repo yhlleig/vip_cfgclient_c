@@ -164,6 +164,7 @@ cfgclient_t * cfg_init(enum CFG_PARTITION partition)
     else // not exist
     {
     	LOG_INFO(("domain %s is *NOT* configured in bootstrap, use bootstrap as ZK Svr", partkey));
+    	strcpy(cc->zkhost, DEFAULT_CONFIG_CENTER);
     	cc->zh = zh_bootstrap;
     	// 设置watcher
     	zoo_set_watcher(cc->zh, zh_watcher);
