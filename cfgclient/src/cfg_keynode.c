@@ -62,10 +62,13 @@ void keynode_watcher(zhandle_t *zzh, int type, int state, const char *path, void
 		LOG_ERROR(("path is null"));
 		return;
 	}
-
+	if (!context)
+	{
+		LOG_ERROR(("Watcher callback context is null"));
+		return;
+	}
 	// 处理业务
 	cfgclient_t *cc = (cfgclient_t *)context;
-
 	char key[32] = {0};
 	int rc = parsekey(key, path, cc->path_prefix);
 	if (0 != rc)
