@@ -241,7 +241,7 @@ int cfg_get_data(cfgclient_t *cc, const char *key, char *value, int *value_len)
 			return ERR_ENQUEUE_NODE;
 		}
 
-		rc = keynode_watch_and_up_data(cc, key_node, true);
+		rc = keynode_attach(cc, key_node, true, 0);
 		if (0 != rc)
 		{
 			LOG_ERROR(("Exec key_node_watch_and_up_data error, return %d", rc));
@@ -272,14 +272,14 @@ int cfg_set_watcher(cfgclient_t *cc, const char *key,
 		 || key_node->watcherctx != watcherCtx) 
 		{
 			// 更新节点的值(watcher & watcherCtx)
-			rc = update_keynode_watch(key_node, 1, watcher, watcherCtx);
+			rc = update_keynode_watcher(key_node, 1, watcher, watcherCtx);
 			if (0 != rc)
 			{
 				LOG_ERROR(("Exec update_key_node error, return %d", rc));
 				return rc;
 			}
 			// get新数据
-			rc = keynode_watch_and_up_data(cc, key_node, true);
+			rc = keynode_attach(cc, key_node, true, 0);
 			if (0 != rc)
 			{
 				LOG_ERROR(("key_node_call_zk_get error, return %d", rc));
@@ -308,7 +308,7 @@ int cfg_set_watcher(cfgclient_t *cc, const char *key,
 			return ERR_ENQUEUE_NODE;
 		}
 
-		rc = keynode_watch_and_up_data(cc, key_node, true);
+		rc = keynode_attach(cc, key_node, true, 0);
 		if (0 != rc)
 		{
 			LOG_ERROR(("key_node_call_zk_get error, return %d", rc));
@@ -332,7 +332,7 @@ int cfg_clear_watcher(cfgclient_t *cc, const char *key)
 			LOG_ERROR(("key_node is null, abort"));
 			return -1;
 		}
-		int rc = update_keynode_watch(key_node, 0, NULL, NULL);
+		int rc = update_keynode_watcher(key_node, 0, NULL, NULL);
 		if (0 != rc)
 		{
 			LOG_ERROR(("Exec update_key_node error, return %d", rc));
@@ -378,12 +378,14 @@ void cfg_dump(cfgclient_t *cc, char *s)
 		"patition: 	%s \n"
 		"workstate: 	%d \n"
 		"zh_address: 	%p \n"
+		"timeout:	%d \n"
 		"path_prefix: 	%s \n"
 		"zkhost: 	%s \n"
 		"keynode_list: \n"		
 		,cc->partition
 		,cc->workstate
 		,cc->zh
+		,zoo_recv_timeout(cc->zh)
 		,cc->path_prefix
 		,cc->zkhost
 		);

@@ -9,6 +9,11 @@ extern void zh_watcher(zhandle_t *zzh, int type, int state, const char *path, vo
 int reload_zk(cfgclient_t *cc, int reconnect)
 {
 	LOG_INFO(("begin to reload client. %sneed reconnect zk", reconnect? "":"no "));
+	if (!cc)
+	{
+		LOG_ERROR(("cc to reload is null"));
+		return -1;
+	}
 	// 加大锁
 	pthread_mutex_lock(&cc->cfg_client_lock);
 	// state 变为 pending
@@ -20,11 +25,11 @@ int reload_zk(cfgclient_t *cc, int reconnect)
 		zookeeper_close(cc->zh);
 		cc->zh = NULL;
 		// 重新初始化 zk 直到成功
-		cc->zh = zookeeper_init(cc->zkhost, zh_watcher, 30000, 0, 0, 0);
+		cc->zh = zookeeper_init(cc->zkhost, zh_watcher, 30000, 0, cc, 0);
 		while (cc->zh == NULL)
 		{
 			sleep(3);
-			cc->zh = zookeeper_init(cc->zkhost, zh_watcher, 30000, 0, 0, 0);
+			cc->zh = zookeeper_init(cc->zkhost, zh_watcher, 30000, 0, cc, 0);
 		}
 	}
 	// 重新注册队列
@@ -32,7 +37,7 @@ int reload_zk(cfgclient_t *cc, int reconnect)
 	key_node_t *pNode = cc->qhead;
 	for (;pNode != NULL; pNode = pNode->next)
 	{
-		keynode_watch_and_up_data(cc, pNode, false);
+		keynode_attach(cc, pNode, false, 1);
 	}
 	pthread_rwlock_unlock(&cc->queue_rwlock);
 
@@ -62,6 +67,7 @@ void keynode_watcher(zhandle_t *zzh, int type, int state, const char *path, void
 		LOG_ERROR(("path is null"));
 		return;
 	}
+
 	if (!context)
 	{
 		LOG_ERROR(("Watcher callback context is null"));
@@ -109,13 +115,13 @@ void * process_watch_event(void *arg)
 	LOG_DEBUG(("CC address 0x%x  Node address 0x%x", cc, key_node));
 	LOG_DEBUG(("A new thread is up to process Key [%s] change event", key_node->key));
 	// 获取最新数据
-	int rc = keynode_watch_and_up_data(cc, key_node, true);
+	int rc = keynode_attach(cc, key_node, true, 1);
 	if (0 != rc)
 	{
-		LOG_ERROR(("call zk to get node data and update error, return %d", rc));
-		return ((void*)0);
+		LOG_ERROR(("call zk to get node data and update error, return %d", rc));		
 	}
-
+	return ((void*)0);
+	/*
 	// 得到最新数据
 	char value[1024 * 8] = {0};
     int value_len = sizeof(value);
@@ -132,6 +138,7 @@ void * process_watch_event(void *arg)
 		(*key_node->watcher)(cc,key_node->key,value,value_len,key_node->watcherctx);
 	}
 	return ((void*)0);
+	*/
 }
 
 /**************************************************
@@ -172,7 +179,7 @@ key_node_t * create_keynode(const char *key, cc_watcher_fn watcher, void *watche
 }
 
 // 更新节点的watcher信息
-int update_keynode_watch(key_node_t *key_node, int watch, cc_watcher_fn watcher, void *watcherCtx)
+int update_keynode_watcher(key_node_t *key_node, int watch, cc_watcher_fn watcher, void *watcherCtx)
 {
 	if (key_node == NULL)
 	{
@@ -197,7 +204,6 @@ bool keynode_exist(cfgclient_t *cc, const char *key, key_node_t **p_key_node, bo
 		LOG_ERROR(("cc is NULL, abort"));
 		return bexist;
 	}
-	LOG_DEBUG(("KEY=%s. key_node address 0x%x", key, *p_key_node));
 	if (needlock)
 	{
 		pthread_rwlock_rdlock(&cc->queue_rwlock);
@@ -207,7 +213,6 @@ bool keynode_exist(cfgclient_t *cc, const char *key, key_node_t **p_key_node, bo
 	{
 		if (strcmp(pNode->key, key) == 0)
 		{
-			LOG_DEBUG(("key[%s] Node found. address 0x%x", key, pNode));
 			bexist = true;
 			*p_key_node = pNode;
 			break;
@@ -330,27 +335,39 @@ int get_keynode_value(key_node_t *key_node, char *value, int *value_len)
 }
 
 // 更新keynode节点内存中的值
+// return <0 error,  =0 no change, >0 changed
 int update_keynode_value(key_node_t *key_node, const char *value, int value_len)
-{
+{	
 	if (!key_node)
 	{
 		LOG_ERROR(("key_node is NULL, abort"));
 		return ERR_PARAM_INVALID;
 	}
+	int changed = 1;
 	pthread_mutex_lock(&key_node->keynode_lock);
-
-	if (key_node->value)
+	// 判断数据是否变化
+	if ( key_node->value != 0
+	  && value_len == key_node->value_len 
+	  && strcmp(key_node->value, value) == 0)
 	{
-		free(key_node->value);
+		LOG_DEBUG(("values hava no difference"));
+		changed = 0;
+	} 
+	// 变化了则更新内存
+	if (changed)
+	{
+		if (key_node->value)
+		{
+			free(key_node->value);
+		}
+		key_node->value = strdup(value);
+		key_node->value_len = value_len;
 	}
-	key_node->value = strdup(value);
-	key_node->value_len = value_len;
-
 	pthread_mutex_unlock(&key_node->keynode_lock);
-	return 0;
+	return changed;
 }
 
-int keynode_watch_and_up_data(cfgclient_t *cc, key_node_t *key_node, bool need_check_state)
+int keynode_attach(cfgclient_t *cc, key_node_t *key_node, bool need_check_state, int notify)
 {
 	if (!cc || !key_node)
 	{
@@ -394,5 +411,20 @@ int keynode_watch_and_up_data(cfgclient_t *cc, key_node_t *key_node, bool need_c
 		return ERR_ZK_WGET_FAIL;
 	}
 	// 更新到缓存中
-	return update_keynode_value(key_node, buffer, buffer_len);
+	rc = update_keynode_value(key_node, buffer, buffer_len);
+	if (rc < 0)
+	{
+		LOG_ERROR(("update keynode value error, return %d", rc));
+		return ERR_SYS_INTERNAL;
+	}
+	// 数据有变化情况下，若外部调用指明要通知(非用户调用都要指明notify为1)
+	// 则判断watch和watcher有效 回调客户函数
+	if (rc > 0 && notify && key_node->watch && key_node->watcher != NULL)
+	{
+		// 回调客户watcher
+		LOG_INFO(("Now Callback to user watcher begin"));
+		(*key_node->watcher)(cc,key_node->key,buffer,buffer_len,key_node->watcherctx);
+		LOG_INFO(("Callback to user watcher end"));
+	}
+	return 0;
 }

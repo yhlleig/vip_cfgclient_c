@@ -18,7 +18,7 @@ void * process_watch_event(void *arg);
 key_node_t * create_keynode(const char *key, cc_watcher_fn watcher, void *watcherCtx);
 
 // 更新节点的watcher信息
-int update_keynode_watch(key_node_t *key_node, int watch, cc_watcher_fn watcher, void *watcherCtx);
+int update_keynode_watcher(key_node_t *key_node, int watch, cc_watcher_fn watcher, void *watcherCtx);
 
 // 判断节点是否在队列中存在，若存在则返回true，且key_node为节点指针
 // 默认参数needlock 加锁，无锁的情况适用于 enqueue_keynode中，在加写锁后，再判断一次条件，就无需再加读锁
@@ -42,7 +42,8 @@ int get_keynode_value(key_node_t *key_node, char *value, int *value_len);
 // 更新keynode节点内存中的值
 int update_keynode_value(key_node_t *key_node, const char *value, int value_len);
 
-// keynode节点调用zk同步wget数据，且watch上，并将同步返回的数据更新到keynode中
-int keynode_watch_and_up_data(cfgclient_t *cc, key_node_t *key_node, bool need_check_state);
+// keynode节点调用zk同步wget数据，且watch上，并将同步返回的数据更新到keynode中, notify代表是否要回调用户
+// 用户主动触发的不需要去发通知，事件通知或者自发重连导致的重新拉取数据则需要通知用户
+int keynode_attach(cfgclient_t *cc, key_node_t *key_node, bool need_check_state, int notify);
 
 #endif
